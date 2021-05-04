@@ -1,0 +1,340 @@
+---
+title: "L07 Model Tuning"
+subtitle: "Data Science II (STAT 301-2)"
+author: "Natalie Ghidali"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    highlight: "tango"
+---
+
+## Overview
+
+This lab covers material up to and including [13. Grid search](https://www.tmwr.org/grid-search.html) from [Tidy Modeling with R](https://www.tmwr.org/). In this lab, we start with a new data set and go through the entire modeling process -- splitting the data and using repeated V-fold cross-validation to choose and tune a model.g
+
+**This lab can serve as an example of the overall statistical learning process (that you will use for your final project).** Your project should generally follow similar steps (although it may include more exploration of the training set, and comparing more types of models).
+
+### Load Packages & Set a Seed
+
+```{r, message=FALSE, warning=FALSE}
+# Load packages here!
+library(tidyverse)
+library(tidymodels)
+library(janitor)
+# Set seed here!
+set.seed(43)
+
+```
+
+## Tasks
+
+### Task 1
+
+For this lab, we will be working with a simulated data set, designed to accompany the book [An Introduction to Statistical Learning with Applications in R](https://www.statlearning.com/). The data set consists of 400 observations about the sales of child car seats at different stores.
+
+Our goal with this data is regression; specifically, to build **and tune** a model that can predict car seat sales as accurately as possible.
+
+Load the data from `data/carseats.csv` into *R* and familiarize yourself with the variables it contains using the codebook (`data/carseats_codebook.txt`).
+
+```{r}
+carseats <- read_csv("data/carseats.csv") %>%
+  clean_names()
+```
+
+### Task 2
+
+Using the full data set, explore/describe the distribution of the outcome variable `sales`. Perform a quick `skim` of the data and note any potential problems (like missingness).
+
+```{r}
+carseats %>%
+  ggplot(aes(sales)) +
+  geom_histogram(bins = 30)
+
+carseats %>%
+  skimr::skim_without_charts()
+
+qqnorm(carseats$sales)
+```
+There doesn't appear to be any issues.
+
+### Task 3
+
+Split the data! **Make sure to set a seed.** Use stratified sampling.
+
+You should choose the proportions to split the data into. Verify that the training and testing data sets have the appropriate number of observations.
+
+Then use V-fold cross-validation with 10 folds, repeated 5 times, to fold the **training** data.
+
+```{r}
+carseats_split <- initial_split(carseats, prop = 0.7)
+carseats_train <- training(carseats_split)
+carseats_test <- testing(carseats_split)
+
+dim(carseats_train)
+dim(carseats_test)
+```
+This is the correct proportion.
+
+```{r}
+carseat_folds <- vfold_cv(data = carseats_train, v =  10, repeats = 5)
+```
+
+### Task 4
+
+Set up a recipe. The recipe should predict `sales` (the outcome) using all other variables in the data set. Add steps to your recipe to:
+
+-   one-hot encode all categorical predictors, &
+
+-   center and scale all predictors.
+
+`prep()` and `bake()` your recipe on the training data. How many columns are there in the data after you've processed it? You'll need to use this number as an upper limit for possible values of `mtry`.
+
+```{r}
+carseat_recipe <- recipe(sales ~ ., data = carseats_train) %>%
+  step_dummy(all_nominal(), one_hot = TRUE) %>%
+  step_normalize(all_predictors())
+
+prep(carseat_recipe) %>%
+  bake(new_data = NULL) 
+```
+
+### Task 5
+
+We will train and tune **three competing model types**:
+
+1.  A random forest model (`rand_forest()`) with the `ranger` engine;
+2.  A boosted tree model (`boost_tree()`) with the `xgboost` engine;
+3.  A *k*-nearest neighbors model (`nearest_neighbors()`) with the `kknn` engine.
+
+*Hint:* Ensure engine packages are installed.
+
+Set up and store each of these three models with the appropriate function and engine.
+
+For the random forest model, we will tune the hyper-parameters `mtry` and `min_n`. For the boosted tree model, we will tune `mtry`, `min_n`, and `learn_rate`. For the *k*-nearest neighbors model, we will tune `neighbors`. **When you set up these models, you should flag these parameters for tuning with `tune()`**.
+
+Example for random forest model:
+
+```{r, eval=FALSE}
+rf_model <- rand_forest(mode = "regression",
+                        min_n = tune(),
+                        mtry = tune()) %>% 
+  set_engine("ranger")
+```
+
+
+```{r}
+# Random Forest model
+rf_model <- rand_forest(mode = "regression", mtry = tune(), min_n = tune()) %>%
+  set_engine("ranger")
+
+#A Boosted tree model
+bt_model <- boost_tree(mode = "regression", mtry = tune(), min_n = tune(),
+                       learn_rate = tune()) %>%
+  set_engine("xgboost")
+
+# Nearest neighbors model
+nn_model <- nearest_neighbor(mode = "regression", neighbors = tune()) %>%
+  set_engine("kknn")
+```
+
+### Task 6
+
+Now we will set up and store **regular grids** with 5 levels of possible values for tuning hyper-parameters for each of the three models.
+
+Example for random forest model:
+
+```{r, eval=FALSE}
+rf_params <- parameters(rf_model) %>% 
+  update(mtry = mtry(c(1, N))) # where N = number of predictor columns in processed data
+
+rf_grid <- grid_regular(rf_params, levels = 5)
+```
+
+The parameters `min_n` and `neighbors` have default tuning values should work reasonably well, so we won't need to update their defaults manually. For `mtry`, we will need to use `update()` (as shown above) to change the upper limit value to the number of predictor columns. For `learn_rate`, we will also use `update()`, this time to set `range = c(-5, -0.2)`.
+
+```{r}
+# Random forest model
+parameters(rf_model)
+rf_params <- parameters(rf_model) %>%
+  update(mtry = mtry(range=c(1,14)))
+rf_grid <- grid_regular(rf_params, levels = 5)
+
+# Boosted Tree model
+bt_params <- parameters(bt_model) %>%
+  update(mtry = mtry(range = c(1,14)),
+         learn_rate = learn_rate(range = c(-5, -0.2)))
+bt_grid <- grid_regular(bt_params,levels = 5)
+
+# Nearest neighbors model
+nn_params <- parameters(nn_model)
+nn_grid <- grid_regular(nn_params, levels = 5)
+```
+
+### Task 7
+
+Print one of the grid tibbles that you created in Task 6 and explain what it is in your own words. Why are we creating them?
+
+```{r}
+rf_grid %>%
+  print(n = Inf)
+```
+This grid represents the different parameter value combinations to try. We do this to optimize the tuning parameters of our model. We want to pick the model with parameters that achieved the best performance.
+
+### Task 8
+
+For each of our 3 competing models (random forest, boosted tree, and knn), set up a workflow, add the appropriate model from Task 5, and add the recipe we created in Task 4.
+
+Example for random forest model:
+
+```{r, eval=FALSE}
+rf_workflow <- workflow() %>% 
+  add_model(rf_model) %>% 
+  add_recipe(carseat_recipe)
+```
+
+```{r}
+# Random Forest model
+rf_workflow <- workflow() %>% 
+  add_model(rf_model) %>% 
+  add_recipe(carseat_recipe)
+
+# Boosted tree model
+bt_workflow <- workflow() %>% 
+  add_model(bt_model) %>% 
+  add_recipe(carseat_recipe)
+
+# Nearest neighbors model
+nn_workflow <- workflow() %>% 
+  add_model(nn_model) %>% 
+  add_recipe(carseat_recipe)
+```
+
+### Task 9
+
+Here's the fun part, where we get to tune the parameters for these models and find the values that optimize model performance across folds!
+
+Take each of your three workflows from Task 8. Pipe each one into `tune_grid()`. Supply your folded data and the appropriate grid of parameter values as arguments to `tune_grid()`.
+
+**WARNING: STORE THE RESULTS OF THIS CODE. You will NOT want to re-run this code each time you knit your .Rmd. We strongly recommend running it in an .R script and storing the results for each model with `write_rds()` or similar. You may also want to use RStudio's jobs functionality (but are not required to).**
+
+Example for random forest:
+
+```{r, eval=FALSE}
+rf_tuned <- rf_workflow %>% 
+  tune_grid(carseat_folds, grid = rf_grid)
+```
+
+```{r, eval= FALSE}
+# Random Forest model
+rf_tuned <- rf_workflow %>% 
+  tune_grid(carseat_folds, grid = rf_grid)
+
+# Boosted tree model
+bt_tuned <- bt_workflow %>% 
+  tune_grid(carseat_folds, grid = bt_grid)
+
+# Nearest neighbors model
+nn_tuned <- nn_workflow %>% 
+  tune_grid(carseat_folds, grid = nn_grid)
+
+# Save work
+save(rf_tuned, bt_tuned, nn_tuned, file = "tuned.rda")
+```
+
+```{r}
+load("tuned.rda")
+```
+
+### Task 10
+
+Let's check out the results!
+
+Use `autoplot()` on each of the objects you stored in Task 9. Set the `metric` argument of `autoplot()` to `"rmse"` for each. (Otherwise it will produce plots for *R*^2^ as well -- doesn't hurt, but we're interested in RMSE.)
+
+Pick one of the three `autoplot()`s you've produced and describe it in your own words. What happens to the RMSE as the values of the tuning parameters change?
+
+Example for random forest:
+
+```{r, eval=FALSE}
+autoplot(rf_tuned, metric = "rmse")
+```
+
+```{r}
+autoplot(rf_tuned, metric = "rmse")
+autoplot(bt_tuned, metric = "rmse")
+autoplot(nn_tuned, metric = "rmse")
+```
+For the nearest neighbors plot as the value increases the rmse is decreasing slower and slower.
+
+### Task 11
+
+Run `select_best()` on each of the three tuned models. Which of the three models (after tuning) produced the smallest RMSE across cross-validation **(which is the "winning" model)**? What are the optimum value(s) for its tuning parameters?
+
+Example for random forest:
+
+```{r, eval=FALSE}
+select_best(rf_tuned, metric = "rmse")
+```
+
+```{r}
+select_best(rf_tuned, metric = "rmse")
+show_best(rf_tuned) # RMSE = 1.641682	
+select_best(bt_tuned, metric = "rmse")
+show_best(bt_tuned) # RMSE = 1.541205
+select_best(nn_tuned, metric = "rmse")
+show_best(nn_tuned) # RMSE = 1.992023
+```
+The bt model had the smallest RMSE with the tuning values of mtry = 10, min_n = 30, and learn_rate = 0.63.
+
+### Task 12
+
+We've now used 10-fold cross-validation (with 5 repeats) to tune three competing models -- a random forest, a boosted tree, and a KNN model. You've selected the "winning" model and learned the optimal values of its tuning parameters to produce the lowest RMSE on assessment data across folds.
+
+Now we can **use the winning model and the tuning values to fit the model to the entire training data set**.
+
+Example, if the random forest performed best:
+
+```{r, eval=FALSE}
+rf_workflow_tuned <- rf_workflow %>% 
+  finalize_workflow(select_best(rf_tune, metric = "rmse"))
+
+rf_results <- fit(rf_workflow, carseat_train)
+```
+
+```{r}
+bt_workflow_tuned <- bt_workflow %>% 
+  finalize_workflow(select_best(bt_tuned, metric = "rmse"))
+
+bt_results <- fit(bt_workflow_tuned, carseats_train)
+```
+
+### Task 13
+
+Finally, at long last, we can use the **testing data set** that we set aside in Task 3!
+
+Use `predict()`, `bind_cols()`, and `metric_set()` to fit your tuned model to the testing data.
+
+Example, if the random forest performed best:
+
+```{r, eval=FALSE}
+carseat_metric <- metric_set(rmse)
+
+predict(rf_results, new_data = carseat_test) %>% 
+  bind_cols(carseats_test %>% select(sales)) %>% 
+  carseat_metric(truth = sales, estimate = .pred)
+```
+
+```{r}
+carseat_metric <- metric_set(rmse)
+
+predict(bt_results, new_data = carseats_test) %>% 
+  bind_cols(carseats_test %>% select(sales)) %>% 
+  carseat_metric(truth = sales, estimate = .pred)
+```
+
+### Task 14
+
+How did your model do on the brand-new, untouched testing data set? Is the RMSE it produced on the testing data similar to the RMSE estimate you saw while tuning?
+
+The RMSE on the testing data is 1.546876 while the stimate on the training data was 1.541205. Although as expected the testing data has a slightly higher RMSE, it is remarkably similar. This makes sense since we used cross fold validation.

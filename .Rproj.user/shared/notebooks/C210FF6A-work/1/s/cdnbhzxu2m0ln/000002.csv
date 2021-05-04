@@ -1,0 +1,2 @@
+"0","# no split needed since test set is already seperate"
+"0","loan_folds <- vfold_cv(data = loans, v = 10, repeats = 5)"

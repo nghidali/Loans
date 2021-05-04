@@ -1,0 +1,23 @@
+# mlp tuning ----
+
+# Load package(s) ----
+library(tidyverse)
+library(tidymodels)
+library(tictoc)
+
+# load required objects ----
+load("model_info/input/mlp_variables.rda")
+
+# Tuning/fitting ----
+tic("mlp_log")
+
+mlp_tuned <- mlp_workflow %>%
+  tune_grid(folds, mlp_grid, control)
+
+toc(log = TRUE)
+
+# save runtime info
+mlp_log <- tic.log(format = TRUE)
+
+# Write out results & workflow
+saveRDS(mlp_tuned, "model_info/output/mlp_tuned.rds")

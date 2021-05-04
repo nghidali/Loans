@@ -1,0 +1,8 @@
+"0","loan_recipe1 <- recipe(hi_int_prncp_pd ~ ., data = loans) %>%"
+"0","  step_dummy(all_nominal()) %>%"
+"0","  # step_date(earliest_cr_line, last_credit_pull_d) %>%"
+"0","  # step_rm(earliest_cr_line, last_credit_pull_d) "
+"0","  step_normalize(all_predictors())"
+"0",""
+"0","# prep(loan_recipe1) %>%"
+"0","#   bake(new_data = NULL)"

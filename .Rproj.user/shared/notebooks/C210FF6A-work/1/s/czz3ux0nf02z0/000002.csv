@@ -1,0 +1,56 @@
+"0","loans <- read_csv(""data/train.csv"")  %>%
+  mutate(
+    addr_state = factor(addr_state),
+    application_type = factor(application_type),
+    earliest_cr_line = as.numeric(parse_date(earliest_cr_line, format = ""%b-%Y"")),
+    emp_length = factor(
+      emp_length,
+      ordered = TRUE,
+      levels = c(
+        ""< 1 year"",
+        ""1 year"",
+        ""2 years"",
+        ""3 years"",
+        ""4 years"",
+        ""5 years"",
+        ""6 years"",
+        ""7 years"",
+        ""8 years"",
+        ""9 years"",
+        ""10+ years"",
+        ""n/a""
+      )
+    ),
+    emp_title = factor(emp_title),
+    grade = factor(grade, ordered = TRUE),
+    home_ownership = factor(home_ownership),
+    initial_list_status = factor(initial_list_status),
+    last_credit_pull_d = as.numeric(parse_date(last_credit_pull_d, format = ""%b-%Y"")),
+    purpose = factor(purpose),
+    sub_grade = factor(sub_grade, ordered = TRUE),
+    term = factor(term),
+    verification_status = factor(verification_status),
+    hi_int_prncp_pd = factor(hi_int_prncp_pd)
+  )
+"
+"2","
+[36m──[39m [1m[1mColumn specification[1m[22m [36m─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m
+cols(
+  .default = col_double(),
+  addr_state = [31mcol_character()[39m,
+  application_type = [31mcol_character()[39m,
+  earliest_cr_line = [31mcol_character()[39m,
+  emp_length = [31mcol_character()[39m,
+  emp_title = [31mcol_character()[39m,
+  grade = [31mcol_character()[39m,
+  home_ownership = [31mcol_character()[39m,
+  initial_list_status = [31mcol_character()[39m,
+  last_credit_pull_d = [31mcol_character()[39m,
+  purpose = [31mcol_character()[39m,
+  sub_grade = [31mcol_character()[39m,
+  term = [31mcol_character()[39m,
+  verification_status = [31mcol_character()[39m
+)
+[36mℹ[39m Use [38;5;235m[48;5;253m[38;5;235m[48;5;253m`spec()`[48;5;253m[38;5;235m[49m[39m for the full column specifications.
+
+"
