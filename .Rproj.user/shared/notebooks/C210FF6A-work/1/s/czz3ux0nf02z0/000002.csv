@@ -1,40 +1,39 @@
-"0","loans <- read_csv(""data/train.csv"")  %>%
-  mutate(
-    addr_state = factor(addr_state),
-    application_type = factor(application_type),
-    earliest_cr_line = as.numeric(parse_date(earliest_cr_line, format = ""%b-%Y"")),
-    emp_length = factor(
-      emp_length,
-      ordered = TRUE,
-      levels = c(
-        ""< 1 year"",
-        ""1 year"",
-        ""2 years"",
-        ""3 years"",
-        ""4 years"",
-        ""5 years"",
-        ""6 years"",
-        ""7 years"",
-        ""8 years"",
-        ""9 years"",
-        ""10+ years"",
-        ""n/a""
-      )
-    ),
-    emp_title = factor(emp_title),
-    grade = factor(grade, ordered = TRUE),
-    home_ownership = factor(home_ownership),
-    initial_list_status = factor(initial_list_status),
-    last_credit_pull_d = as.numeric(parse_date(last_credit_pull_d, format = ""%b-%Y"")),
-    purpose = factor(purpose),
-    sub_grade = factor(sub_grade, ordered = TRUE),
-    term = factor(term),
-    verification_status = factor(verification_status),
-    hi_int_prncp_pd = factor(hi_int_prncp_pd)
-  )
-"
+"0","loans <- read_csv(""data/train.csv"")  %>%"
+"0","  select(-purpose) %>%"
+"0","  mutate("
+"0","    addr_state = factor(addr_state),"
+"0","    application_type = factor(application_type),"
+"0","    earliest_cr_line = as.numeric(parse_date(earliest_cr_line, format = ""%b-%Y"")),"
+"0","    emp_length = factor("
+"0","      emp_length,"
+"0","      ordered = TRUE,"
+"0","      levels = c("
+"0","        ""< 1 year"","
+"0","        ""1 year"","
+"0","        ""2 years"","
+"0","        ""3 years"","
+"0","        ""4 years"","
+"0","        ""5 years"","
+"0","        ""6 years"","
+"0","        ""7 years"","
+"0","        ""8 years"","
+"0","        ""9 years"","
+"0","        ""10+ years"","
+"0","        ""n/a"""
+"0","      )"
+"0","    ),"
+"0","    emp_title = factor(emp_title),"
+"0","    grade = factor(grade, ordered = TRUE),"
+"0","    home_ownership = factor(home_ownership),"
+"0","    initial_list_status = factor(initial_list_status),"
+"0","    last_credit_pull_d = as.numeric(parse_date(last_credit_pull_d, format = ""%b-%Y"")),"
+"0","    sub_grade = factor(sub_grade, ordered = TRUE),"
+"0","    term = factor(term),"
+"0","    verification_status = factor(verification_status),"
+"0","    hi_int_prncp_pd = factor(hi_int_prncp_pd)"
+"0","  )"
 "2","
-[36m──[39m [1m[1mColumn specification[1m[22m [36m─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m
+[36m──[39m [1m[1mColumn specification[1m[22m [36m───────────────────────────────────────────────────────────────────────[39m
 cols(
   .default = col_double(),
   addr_state = [31mcol_character()[39m,

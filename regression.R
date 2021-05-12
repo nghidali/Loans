@@ -1,9 +1,12 @@
+# Load libraries and set seed
 library(tidyverse)
 library(tidymodels)
 library(lubridate)
 set.seed(42)
 
+# process training set
 loans <- read_csv("data/train.csv")  %>%
+  select(-purpose) %>%
   mutate(
     addr_state = factor(addr_state),
     application_type = factor(application_type),
@@ -31,14 +34,15 @@ loans <- read_csv("data/train.csv")  %>%
     home_ownership = factor(home_ownership),
     initial_list_status = factor(initial_list_status),
     last_credit_pull_d = as.numeric(parse_date(last_credit_pull_d, format = "%b-%Y")),
-    purpose = factor(purpose),
     sub_grade = factor(sub_grade, ordered = TRUE),
     term = factor(term),
     verification_status = factor(verification_status),
     hi_int_prncp_pd = factor(hi_int_prncp_pd)
   )
 
+# process testing set
 testing_data <- read_csv("data/test.csv")  %>%
+  select(-purpose) %>%
   mutate(
     addr_state = factor(addr_state),
     application_type = factor(application_type),
@@ -66,32 +70,39 @@ testing_data <- read_csv("data/test.csv")  %>%
     home_ownership = factor(home_ownership),
     initial_list_status = factor(initial_list_status),
     last_credit_pull_d = as.numeric(parse_date(last_credit_pull_d, format = "%b-%Y")),
-    purpose = factor(purpose),
     sub_grade = factor(sub_grade, ordered = TRUE),
     term = factor(term),
     verification_status = factor(verification_status)
   )
 
 # no split needed since test set is already seperate
-loan_folds <- vfold_cv(data = loans, v = 10, repeats = 5)
+loan_folds <- vfold_cv(data = loans, v = 10, repeats = 3, strata = hi_int_prncp_pd)
+ggplot(loans) +
+  geom_bar(mapping = aes(hi_int_prncp_pd))
 
 loan_recipe1 <- recipe(hi_int_prncp_pd ~ ., data = loans) %>%
-  step_dummy(all_nominal(), -all_outcomes()) %>%
-  step_normalize(all_predictors())
+  step_rm(contains("id")) %>%
+  step_novel(all_nominal(), -all_outcomes()) %>%
+  step_normalize(all_numeric(), -all_outcomes()) %>%
+  step_dummy(all_nominal(), -all_outcomes())
+
+
+# prep(loan_recipe1) %>%
+#   bake(new_data = NULL)
 
 #A Boosted tree model
-bt_model <- boost_tree(mode = "classification", mtry = tune(), min_n = tune(),
+bt_model <- boost_tree(mode = "classification", mtry = tune(),
                        learn_rate = tune()) %>%
   set_engine("xgboost")
-
-bt_params <- parameters(bt_model) %>%
-  update(mtry = mtry(range = c(1,18)),
-         learn_rate = learn_rate(range = c(-5, -1)))
-bt_grid <- grid_regular(bt_params,levels = 5)
 
 bt_workflow <- workflow() %>%
   add_model(bt_model) %>%
   add_recipe(loan_recipe1)
+
+bt_params <- parameters(bt_workflow) %>%
+  update(mtry = mtry(range = c(1,18)),
+         learn_rate = learn_rate(range = c(-5, -1)))
+bt_grid <- grid_regular(bt_params,levels = 3)
 
 save(bt_workflow, loan_folds, bt_grid, file = "bt_tuned_inputs.rda")
 
@@ -109,4 +120,6 @@ bt_predictions <- predict(bt_results, new_data = testing_data) %>%
     Id = id
   )
 
-write_csv(bt_predictions, "predictions1.csv")
+write_csv(bt_predictions, "predictions2.csv")
+
+

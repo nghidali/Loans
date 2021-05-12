@@ -1,5 +1,0 @@
-"0","write_csv(bt_predictions)
-"
-"2","Error in write_delim(x, file, delim = "","", na = na, append = append, col_names = col_names,  : 
-  argument ""file"" is missing, with no default
-"
